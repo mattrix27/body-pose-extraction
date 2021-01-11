@@ -25,7 +25,7 @@ NUM_SUBJ = 34
 
 head_folder = main_folder + 'head_features/'
 NUM_HEAD_FEATURES = 10
-NUM_HEAD
+NUM_HEAD_STATS = NUM_HEAD_FEATURES * 10 * 3
 
 height = 480
 width = 540
@@ -55,9 +55,9 @@ feature_config = {'base_folder': base_folder,
 				  'body_folder': body_folder,
 				  'NUM_BODY_FEATURES': NUM_BODY_FEATURES,
 				  'NUM_BODY_STATS': NUM_BODY_STATS,
+				  'NUM_HEAD_FEATURES': NUM_HEAD_FEATURES,
+				  'NUM_HEAD_STATS': NUM_HEAD_STATS,				  
 				  'NUM_SUBJ': NUM_SUBJ,
-
-
 
 				  'height': height,
 				  'width': width,

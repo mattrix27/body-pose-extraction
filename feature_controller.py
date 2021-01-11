@@ -15,16 +15,17 @@ import Interaction_analysis.head_pose_header as head_header
 import Interaction_analysis.head_pose_analysis as head_analysis
 
 import cv2
+import numpy as np
 
 class Feature_Controller:
     def get_estimators(self):
         self.pose_estimator = mypose.get_pose_estimator((feature_config['height'],feature_config['width']), feature_config['SESSION_PATH'], feature_config['PROB_MODEL_PATH'])
         self.fa = find_face.get_face_aligner()
 
-    def initialize_stats(self, num_subject, num_body_stats):
-        s1_stats = np.zeros((num_subject, num_body_stats))
-        s2_stats = np.zeros((num_subject, num_body_stats))
-        combine_stats = np.zeros((num_subject, num_body_stats)) 
+    def initialize_stats(self, num_subject, num_stats):
+        s1_stats = np.zeros((num_subject, num_stats))
+        s2_stats = np.zeros((num_subject, num_stats))
+        combine_stats = np.zeros((num_subject, num_stats)) 
 
         return s1_stats, s2_stats, combine_stats
 
@@ -111,75 +112,51 @@ class Feature_Controller:
 
         pose_estimator.close()
 
-    def get_features(self, body_folder, num_body_features, filename):
+    def get_features(self, body_folder, num_body_features, head_folder, num_head_features, filename):
 
-        s1_stats, s2_stats, combine_stats = self.initialize_stats(feature_config['NUM_SUBJ'], feature_config['NUM_BODY_STATS'])
+        body_s1_stats, body_s2_stats, body_combine_stats = self.initialize_stats(feature_config['NUM_SUBJ'], feature_config['NUM_BODY_STATS'])
+        head_s1_stats, head_s2_stats, head_combine_stats = self.initialize_stats(feature_config['NUM_SUBJ'], feature_config['NUM_HEAD_STATS'])
 
         for i in range(feature_config['NUM_SUBJ']):
             #for combined session
-            combined_session = np.zeros((1,num_body_features))
+            body_combined_session = np.zeros((1,num_body_features))
+            head_combined_session = np.zeros((1,num_head_features))
 
             #each session
             for j in range(1,3):
-                s = np.zeros((1,num_body_features))
-                startfilename = "p"+"%02d" % (i+1,)+"_s"+str(j)+"_vid_parent_annotation_" #p15_s2_vid_parent_annotation_2019-03-31-13-04-39.mp4.npy
-                onlysessionfile = [f for f in listdir(body_folder) if isfile(join(body_folder, f)) and f.startswith(startfilename)]
-                if len(onlysessionfile) < 1:
-                    # print(startfilename)
-                    # print(onlysessionfile)
-                    pass
-                elif len(onlysessionfile) > 1:
-                    #merg the files into one array
-                    for abc in range(len(onlysessionfile)):
-                        print(onlysessionfile[abc])
-                        if abc == 0:
-                            temp = np.load(body_folder + onlysessionfile[abc])
-                            if temp.shape[0] > 1:
-                                s = temp
-                        else:
-                            temp = np.load(body_folder + onlysessionfile[abc])
-                            if temp.shape[0] > 1:
-                                if s.shape[0] > 1:
-                                    s = np.append(s, temp, axis=0)
-                                else:
-                                    s = temp
-                else:
-                    print(onlysessionfile[0])
-                    s = (np.load(body_folder + onlysessionfile[0]))
+                body_s1_stats, body_s2_stats, body_combined_session = body_stats.get_stats(i, j, num_body_features, body_folder, body_s1_stats, body_s2_stats, body_combined_session)
+                head_s1_stats, head_s2_stats, head_combined_session = body_stats.get_stats(i, j, num_head_features, head_folder, head_s1_stats, head_s2_stats, head_combined_session)
 
-                if s.shape[0]>1:
-                    #extract the session statstics
-                    session_stats = statstic_features(s)
-                    if j == 1:
-                        s1_stats[i,:] = session_stats
-                    else:
-                        s2_stats[i,:] = session_stats
+            if body_combined_session.shape[0]>1:
+                body_combined_session_stats = body_stats.statstic_features(body_combined_session)
+                body_combine_stats[i, :] = body_combined_session_stats
 
-
-                    #combine the two sessions for combined analysis
-                    if combined_session.shape[0]>1:
-                        combined_session = np.append(combined_session, s, axis=0)
-                    else:
-                        combined_session = s
-
-            if combined_session.shape[0]>1:
-                combined_session_stats = statstic_features(combined_session)
-                combine_stats[i, :] = combined_session_stats
+            if head_combined_session.shape[0]>1:
+                head_combined_session_stats = body_stats.statstic_features(head_combined_session)
+                head_combine_stats[i, :] = head_combined_session_stats
 
         # numpy.savetxt(fname, X, fmt='%.18e', delimiter=' ', newline='n', header='', footer='', comments='# ', encoding=None)[source]¶
         filename = filename
-        headers = self.body_header.body_get_headers()
+        body_headers = body_header.body_get_headers()
+        head_headers = head_header.head_get_headers()
 
-        np.savetxt(filename + 'body_session1_stats.csv',s1_stats, fmt='%10.5f', delimiter=',', headers=headers)
-        np.savetxt(filename + 'body_session2_stats.csv',s2_stats, fmt='%10.5f',delimiter=',', headers=headers)
-        np.savetxt(filename + 'body_combined_sessions_stats.csv', combine_stats, fmt='%10.5f', delimiter=',', headers=headers)
+        np.savetxt(filename + 'body_session1_stats.csv',s1_stats, fmt='%10.5f', delimiter=',', headers=body_headers)
+        np.savetxt(filename + 'body_session2_stats.csv',s2_stats, fmt='%10.5f',delimiter=',', headers=body_headers)
+        np.savetxt(filename + 'body_combined_sessions_stats.csv', combine_stats, fmt='%10.5f', delimiter=',', headers=body_headers)
 
+        np.savetxt(filename + 'head_session1_stats.csv',s1_stats, fmt='%10.5f', delimiter=',', headers=body_headers)
+        np.savetxt(filename + 'head_session2_stats.csv',s2_stats, fmt='%10.5f',delimiter=',', headers=body_headers)
+        np.savetxt(filename + 'head_combined_sessions_stats.csv', combine_stats, fmt='%10.5f', delimiter=',', headers=body_headers)
 
-    def analyze_features(self, main_folder):
+    def analyze_features(self, main_folder, body_folder, head_folder):
         body_3d_folder = main_folder+'3d_pose/'
+        bodyfolders = [f for f in listdir(body_3d_folder) if not isfile(join(body_3d_folder, f))]
 
-        for ivid in range(0,len(onlyfolders)):
-            foldername = onlyfolders[ivid]
+        head_3d_folder = main_folder+'3d_pose/'
+        headfolders = [f for f in listdir(head_3d_folder) if not isfile(join(head_3d_folder, f))]
+
+        for ivid in range(0,len(bodyfolders)):
+            foldername = bodyfolders[ivid]
             print(foldername)
 
             bodyPose_features = []
@@ -193,8 +170,27 @@ class Feature_Controller:
                     print("Unexpected error:", sys.exc_info()[0])
                     #bodyPose_features.append(np.zeros(NUM_body_FEATURES))
                     pass
-            np.save(save_body_features+foldername+'.npy',bodyPose_features)
+            np.save(body_folder+foldername+'.npy',bodyPose_features)
             print(len(bodyPose_features))
+
+        for ivid  in range(0,len(headfolders)):
+            foldername = headfolders[ivid]
+            print(foldername)
+
+            headPose_features = []
+            for iframe in range(9000,12600):#only 2min was extracted
+                try:
+                    pose_3d = np.load(head_3d_folder + foldername + '/' + str(iframe) +'.npy')
+                    head_sync_features = head_sync(pose_3d)
+                    if head_sync_features:
+                        headPose_features.append(head_sync_features)
+                except:
+                    print("Unexpected error:", sys.exc_info()[0])
+                    #headPose_features.append(np.zeros(NUM_HEAD_FEATURES))
+                    pass
+            np.save(head_folder+foldername+'.npy',headPose_features)
+            print(len(headPose_features))
+
 
 def main():
     print('Hello')
@@ -206,6 +202,9 @@ def main():
     print("Getting Head and Body Positions...")
     #feature_controller.get_positions(feature_config['main_folder'], feature_config['read_folder'], feature_config['vid_folder'], feature_config['face_3d_folder'])
 
-    print("Analyzing features...")
+    print("Extracting features...")
     #feature_controller.get_Features(feature_config['body_folder'], feature_config['NUM_BODY_FEATURES'], feature_config[body_filename])
+
+    print("Analyzing features...")
+    #feature_controller.analyze_features(feature_config['main_folder'], feature_config['body_folder'], feature_config['head_folder'])
 if __name__ == "__main__": main()
